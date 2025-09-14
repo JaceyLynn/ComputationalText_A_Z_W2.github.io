@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html><head>
+  <script src="https://cdn.jsdelivr.net/npm/p5@2.0.5/lib/p5.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/addons/p5.dom.min.js"></script>
+  
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <meta charset="utf-8">
+
+</head>
+
+<body>
+
+  <div style="margin: 20px; display: flex; flex-direction: column; align-items: flex-start; gap: 16px;">
+    <textarea id="textInput" placeholder="Enter your text here" style="width: 300px; height: 80px; resize: vertical;"></textarea>
+    <button id="countButton">Count</button>
+  </div>
+  <div id="result"></div>
+  <div id="chord-container" style="margin: 40px 0; display: flex; justify-content: center; align-items: center;"></div>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="sketch.js"></script>
+  <script>
+    // Wait for sketch.js to populate window.bigramData
+    function renderChordDiagram() {
+      const data = window.bigramData;
+      if (!data || !Array.isArray(data) || data.length === 0) return;
+
+      // Remove previous SVG if any
+      d3.select('#chord-container').selectAll('svg').remove();
+
+      const width = 700;
+      const height = 700;
+      const innerRadius = Math.min(width, height) * 0.5 - 60;
+      const outerRadius = innerRadius + 10;
+
+      // Get all unique letters
+      const names = Array.from(new Set(data.flatMap(d => [d.source, d.target])));
+      const index = new Map(names.map((name, i) => [name, i]));
+      // Build matrix
+      const matrix = Array.from(index, () => new Array(names.length).fill(0));
+      for (const {source, target, value} of data) {
+        matrix[index.get(source)][index.get(target)] += value;
+      }
+
+      const chord = d3.chordDirected()
+        .padAngle(12 / innerRadius)
+        .sortSubgroups(d3.descending)
+        .sortChords(d3.descending);
+
+      const arc = d3.arc()
+        .innerRadius(innerRadius)
+        .outerRadius(outerRadius);
+
+      const ribbon = d3.ribbonArrow()
+        .radius(innerRadius - 0.5)
+        .padAngle(1 / innerRadius);
+
+      // Rainbow color scale for A-Z
+      const color = d3.scaleSequential()
+        .domain([0, names.length - 1])
+        .interpolator(d3.interpolateRainbow);
+
+      const svg = d3.select('#chord-container').append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .attr('viewBox', [-width / 2, -height / 2, width, height]);
+
+      const chords = chord(matrix);
+
+      // Draw groups (arcs)
+      svg.append('g')
+        .selectAll('path')
+        .data(chords.groups)
+        .join('path')
+        .attr('fill', d => color(d.index))
+        .attr('d', arc);
+
+      // Add group labels
+      svg.append('g')
+        .selectAll('text')
+        .data(chords.groups)
+        .join('text')
+        .attr('dy', '.35em')
+        .attr('transform', d => {
+          const angle = (d.startAngle + d.endAngle) / 2 * 180 / Math.PI - 90;
+          const rotate = `rotate(${angle})`;
+          const translate = `translate(${outerRadius + 18},0)`;
+          return `${rotate} ${translate}`;
+        })
+        .attr('text-anchor', d => (d.startAngle + d.endAngle) / 2 > Math.PI ? 'end' : 'start')
+        .text(d => names[d.index]);
+
+      // Draw ribbons (arrows)
+      svg.append('g')
+        .attr('fill-opacity', 0.7)
+        .selectAll('path')
+        .data(chords)
+        .join('path')
+        .attr('fill', d => color(d.source.index))
+        .attr('d', ribbon)
+        .append('title')
+        .text(d => `${names[d.source.index]} → ${names[d.target.index]}: ${matrix[d.source.index][d.target.index]}`);
+    }
+
+    // Re-render on every count
+    const origDisplayCounts = window.displayCounts;
+    window.displayCounts = function(counts, bigramData) {
+      origDisplayCounts(counts, bigramData);
+      setTimeout(renderChordDiagram, 0);
+    };
+  </script>
+</body></html>
