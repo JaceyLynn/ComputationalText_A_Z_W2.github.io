@@ -70,6 +70,7 @@ function resetAnalysisState() {
 }
 
 function nextAnalysisStep() {
+  console.log('nextAnalysisStep called');
   // get the text from the input box
   let text = inputBox.value();
   // if this is the first step or the text has changed, reset everything
@@ -137,6 +138,12 @@ function nextAnalysisStep() {
   }
   // Continue analysis
   let { currentWord, nextWordMap, chain } = analysisState;
+  console.log('=== Round', analysisState.round, '===');
+  console.log('nextWordMap:', nextWordMap);
+  console.log('currentWord:', currentWord);
+  console.log('analysisState:', analysisState);
+  console.log('chain:', chain);
+  console.log('================');
   let nextWords = nextWordMap[currentWord] || {};
   let nextKeys = Object.keys(nextWords);
   if (nextKeys.length > 0) {
